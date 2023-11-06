@@ -1,0 +1,7 @@
+name = "JuliaTips"
+uuid = "46bd04cf-5bb4-469d-a10f-1c5cd51d3cc8"
+authors = ["albert-de-montserrat <albert.de.montserrat@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
