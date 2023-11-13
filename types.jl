@@ -1,3 +1,4 @@
+using BenchmarkTools, InteractiveUtils
 # # Types / struct
 # As opposed to Object-Oriented-Perogramming, one of the key features of Julia is the so-called multiple dispatch. It is a powerful
 # code dessign pattern that allows to write (typically highly abstract) generic code. 
