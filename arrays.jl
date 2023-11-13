@@ -2,7 +2,7 @@ using BenchmarkTools
 
 # # Working with Arrays
 # Imagine that for some obscure reason we want to do a reduction
-# of saxpy kernel ($A_{ij} * B_{ij} + C_{ij}$) on the interior of a 2D array (i.e. excluding the boundaries).
+# of ~ saxpy BLAS kernel ($A_{ij} * B_{ij} + C_{ij}$) on the interior of a 2D array (i.e. excluding the boundaries).
 
 n = 256
 A, B, C = rand(n,n), rand(n,n), rand(n,n)
