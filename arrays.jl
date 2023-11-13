@@ -1,22 +1,8 @@
 using BenchmarkTools
 
-# # Outline 
-# 1. Writing Julia code: type system and multiple-dispatch
-# 2. Why is my code so slow?
-#      1. Type stabilities
-#      2. Heap vs Stack
-#      3. Arrays and tuples
-# 3. Metaprogramming (i.e. code gen): macros and generated functions
-# 4. Boosting performance
-
-# # Writing Julia code
-# Julia selling point in a nutshell is 
-# > **easy** high-level language with the performance of a low-level language
-#
-# or
-# > reads like Python runs like C
-#
-# ... but is that so?
+# # Working with Arrays
+# Imagine that for some obscure reason we want to do a reduction
+# of a ~saxpy kernel ($A_ij * B_ij + C_ij$) on the interior of a 2D array (i.e. excluding the boundaries).
 
 n = 256
 A, B, C = rand(n,n), rand(n,n), rand(n,n)
