@@ -2,13 +2,13 @@ using BenchmarkTools
 
 # # Working with Arrays
 # Imagine that for some obscure reason we want to do a reduction
-# of a ~saxpy kernel ($A_ij * B_ij + C_ij$) on the interior of a 2D array (i.e. excluding the boundaries).
+# of saxpy kernel ($A_{ij} * B_{ij} + C_{ij}$) on the interior of a 2D array (i.e. excluding the boundaries).
 
 n = 256
 A, B, C = rand(n,n), rand(n,n), rand(n,n)
 f(A, B, C) = sum(A[2:end-1, 2:end-1] .* B[2:end-1, 2:end-1] .+ C[2:end-1, 2:end-1]);
 
-# which reads as MATLAB. Let's benchmark it
+# which is as ugly as MATLAB. Let's benchmark it
 @btime f($A, $B, $C);
 
 # not very impressive. Let's try to make it faster in a Julia way with a one-liner
