@@ -36,5 +36,4 @@ using InteractiveUtils
 
 # If the argument is a homogeneous data container 
 x = (1.0, 0.5, 34.0, 213.23)
-
 @code_warntype foo(x)
