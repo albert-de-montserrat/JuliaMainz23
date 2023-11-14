@@ -1,77 +1,87 @@
 using BenchmarkTools
 
-# # Working with Arrays
-# Imagine that for some obscure reason we want to do a reduction
-# of ~ saxpy BLAS kernel ($A_{ij} * B_{ij} + C_{ij}$) on the interior of a 2D array (i.e. excluding the boundaries).
-
+# # Row/Column-major
+# Different programming languages use different memory layouts for arrays. For example matrices are stored in
+# row-major format in C/C++, Rust or Python; whereas they are stored in column-major format in Julia, Fortran and MATLAB.
+# Because of how data of these matrices is cached when we perform operations on them, the order in which we access the data 
+# is important in terms of performance. In Julia we always want to iterate over the inner most index first, so we acces the arrays
+# memory contiguously, avoided cache misses
 n = 256
 A, B, C = rand(n,n), rand(n,n), rand(n,n)
-f(A, B, C) = sum(A[2:end-1, 2:end-1] .* B[2:end-1, 2:end-1] .+ C[2:end-1, 2:end-1]);
-
-# which is as ugly as MATLAB. Let's benchmark it
-@btime f($A, $B, $C);
-
-# not very impressive. Let's try to make it faster in a Julia way with a one-liner
-
-f1(A, B, C) = sum(A[i, j] * B[i, j] + C[i, j] for i in axes(A,1)[2:end-1], j in axes(A,2)[2:end-1])
-@btime f1($A, $B, $C);
-
-# not bad, we cut off 50% of the time. Unlike Python and MATLAB, loops in Julia are **fast** (and lead to more readible code), 
-# so we can further speed up things if we are willing to type a bit more
-function f2(A, B, C) 
-    v = 0.0
-    nx, ny = size(A)
-    for j in 2:ny-1, i in 2:nx-1
-        v += A[i, j] * B[i, j] + C[i, j]
+function row_major!(A, B, C)
+    for i in axes(A, 1), j in axes(A, 2)
+        A[i, j] = B[i, j] * C[i, j]
     end
-    return v
+    return nothing
 end
-@btime f2($A, $B, $C);
-
-# that's already a x2.5 speedup. Beyond this point, the optimizations are less language-based and more algorithm-based.
-# For example, we could improve the spatial locality of the function by introducing loop unrolling to a given depth (which has to be known at compile time)
-
-function f4(A, B, C, ::Val{N}) where N
-    v = 0.0
-    nx, ny = size(A)
-    blocks = div(nx, N)
-    stride = N
-    for j in 2:ny-1
-        for i in 2:stride:((blocks-1)*stride)-1
-            A0 = ntuple(Val(N)) do ix
-                Base.@_inline_meta
-                @inbounds A[ix+i-1, j]
-            end
-            B0 = ntuple(Val(N)) do ix
-                Base.@_inline_meta
-                @inbounds B[ix+i-1, j]
-            end
-            C0 = ntuple(Val(N)) do ix
-                Base.@_inline_meta
-                @inbounds C[ix+i-1, j]
-            end
-            @inbounds v += sum(muladd(A0[k], B0[k], C0[k]) for k in 1:N)
-        end
-        @inbounds v += sum(muladd(A[i, j], B[i, j], C[i, j]) for i in (((blocks-1)*stride)-1 + stride):nx-1)
+@btime row_major!($A, $B, $C);
+#
+function column_major!(A, B, C)
+    for j in axes(A, 2), i in axes(A, 1)
+        A[i, j] = B[i, j] * C[i, j]
     end
-
-    return v
+    return nothing
 end
+@btime column_major!($A, $B, $C);
 
-@btime f4($A, $B, $C, Val(2)); # 27.554
-@btime f4($A, $B, $C, Val(4)); # 17.458
+# # Stack vs Heap allocation
+# These are the places in the memory where data is "stored". The stack is statically allocated and it is ordered.
+# This order allows the compiler to know exactly where things are, yielding very quick access. Like everything else that is referred as static 
+# the size of variables (i.e. type and length) has to be known at compile time. On the other hand, the heap is dynamically allocated, and not necessarily is unordered, resulting in slower acces.
+allocate_heap() = [rand(); rand()]
+@btime allocate_heap() # data size is a runtime parameter (~malloc)
+#
+allocate_stack() = (rand(), rand()) # a tuple of two floats, everything is known at compile time
+@btime allocate_stack() 
+#
+# A very good performance-wise trick if we want to create non-allocating array-like objects is to use StaticArrays.jl
+using StaticArrays
+allocate_SA() = @SVector [rand(); rand()] # a tuple of two floats, everything is known at compile time
+@btime allocate_SA() 
 
-# for a x5-8 speed up. Or if we are willing to accept some black magic
-# we can use `LoopVectorization.jl` to effortlessly vectorize the loop
-using LoopVectorization
-function f3(A, B, C) 
-    v = 0.0
-    nx, ny = size(A)
-    @turbo for j in 2:ny-1, i in 2:nx-1
-        v += A[i, j] * B[i, j] + C[i, j]
+# # In-place vs out-of-place
+# It is common that you need to store the results of matrix operations in a new array. Creating the new destination array will obviously allocate, if you need to this operation just once, an out-of-place kernel will do just fine
+function outofplace(A, B)
+    C = similar(A)
+    for i in axes(A, 1), j in axes(A, 2)
+        C[i, j] = B[i, j] * C[i, j]
     end
-    return v
+    return C
 end
-@btime f3($A, $B, $C);
+@btime outofplace($A, $B)
 
-# for a nice simpler x6 speedup.  
+# however, it is frequent you need to run the kernel several times, in which case you want to avoid allocating the destination array every time. In this case, you can use an in-place kernel, by pre-allocating the destinating array and just mutating it:
+function inplace!(C, A, B)
+    for i in axes(A, 1), j in axes(A, 2)
+        C[i, j] = B[i, j] * C[i, j]
+    end
+    return nothing
+end
+@btime inplace!($C, $A, $B)
+# note that in the latter case we do no return anything, as Julia passes arguments by reference to the functions.
+# Also note the `!` at the end for the in-place function, this is a convention in Julia to denote that the function mutates its arguments (where the mutating arguments are the first ones).
+
+# # Array-like programming
+# # # Broadcasting
+# As in MATLAB, Julia allows to perform element-wise operations on arrays, this is called broadcasting. A dot before the target function indicates broadcasting
+broadcast1(A, B, C) = A .+ B .+ C
+@btime broadcast1($A, $B, $C)
+
+# alternative you can use the macro `@.` to remove dot redundancy and apply broadcasting to all the operations
+broadcast2(A, B, C) = @. A + B + C
+@btime broadcast2($A, $B, $C)
+
+# See that we are still allocating an output array. We can also do in-place operations with broadcasting by putting a dot before the equal symbol
+function broadcasting3!(C, A, B)
+    C .= A .+ B
+    return nothing
+end
+@btime broadcasting3!($C, $A, $B);
+
+# # # Array slicing
+# We can use MATLAB syntax to slice our arrays
+Aslice = A[:, 1];
+# However, this is creating a new array out of the slice of A (=allocating). If we want to avoid this, we can use the `@view` macro
+@btime @. $C[:, 1] = $A[:, 1] + $B[:, 1] 
+# But we can avoid allocations using the `@views` macro
+@btime @views @. $C[:, 1] = $A[:, 1] + $B[:, 1] 
