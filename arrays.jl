@@ -5,7 +5,7 @@ using BenchmarkTools
 # row-major format in C/C++, Rust or Python; whereas they are stored in column-major format in Julia, Fortran and MATLAB.
 # Because of how data of these matrices is cached when we perform operations on them, the order in which we access the data 
 # is important in terms of performance. In Julia we always want to iterate over the inner most index first, so we acces the arrays
-# memory contiguously, avoided cache misses
+# memory contiguously and avoid cache misses
 n = 256
 A, B, C = rand(n,n), rand(n,n), rand(n,n)
 function row_major!(A, B, C)
@@ -24,10 +24,21 @@ function column_major!(A, B, C)
 end
 @btime column_major!($A, $B, $C);
 
+# Julia does biunds checking by default, but you can turn it off with the macro `@inbounds`, 
+# usually resulting in faster code
+function column_major_inbounds!(A, B, C)
+    @inbounds for j in axes(A, 2), i in axes(A, 1)
+        A[i, j] = B[i, j] * C[i, j]
+    end
+    return nothing
+end
+@btime column_major_inbounds!($A, $B, $C);
+
 # # Stack vs Heap allocation
 # These are the places in the memory where data is "stored". The stack is statically allocated and it is ordered.
 # This order allows the compiler to know exactly where things are, yielding very quick access. Like everything else that is referred as static 
-# the size of variables (i.e. type and length) has to be known at compile time. On the other hand, the heap is dynamically allocated, and not necessarily is unordered, resulting in slower acces.
+# the size of variables (i.e. type and length) has to be known at compile time. On the other hand, the heap is dynamically allocated, and not necessarily is unordered, resulting in slower acces. 
+# An excellent explanation of the difference between stack and heap can be found in [Rust's docs](https://web.mit.edu/rust-lang_v1.25/arch/amd64_ubuntu1404/share/doc/rust/html/book/first-edition/the-stack-and-the-heap.html).
 allocate_heap() = [rand(); rand()]
 @btime allocate_heap() # data size is a runtime parameter (~malloc)
 #
@@ -85,3 +96,5 @@ Aslice = A[:, 1];
 @btime @. $C[:, 1] = $A[:, 1] + $B[:, 1] 
 # But we can avoid allocations using the `@views` macro
 @btime @views @. $C[:, 1] = $A[:, 1] + $B[:, 1] 
+# Tip: loops are *fast*, so just loop. Looping often yields faster code, as you can do 
+# more optimizations (e.g. loop fusion, caching, loop unrolling, SIMD, etc.), and more readible code
