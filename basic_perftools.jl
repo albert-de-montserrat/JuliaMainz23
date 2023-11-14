@@ -12,12 +12,11 @@
 # # BenchmarkTools.jl
 using BenchmarkTools
 f(x, n) = x^n
-@btime f(1.2, 3.2)
-
-# Be aware if you want to benchmark functions with non-literal arguments, you 
-# need to use the dollar symbol:
-
 x, n = 1.2, 3.2
+@btime f(x, n)
+
+# If the expression you want to benchmark depends on variables in the global scope,
+# you should use $ to "interpolate" them into the benchmark expression to avoid the problems of benchmarking with globals.
 @btime f($x, $n)
 
 # # Type instabilities
@@ -53,7 +52,7 @@ function f1()
     return A
 end
 @btime f1();
-# As you can see the performance is not great. Lets see where the bottleneck is with the profiler
+# As you can see the performance is not great. Let's see where the bottleneck is with the profiler
 using ProfileCanvas
 ProfileCanvas.@profview for _ in 1:100 f1() end
 #

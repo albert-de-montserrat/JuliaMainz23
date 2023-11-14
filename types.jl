@@ -19,20 +19,24 @@ foo(1.0)
 foo(2f0)
 
 # This means that I could extend a given method for a type that is defined in an external package.
-# Typical one wants to create its own dat type, this is done with `struct`. For example I can create a
-# `Dual` number type and define the rules for addition (basically the so-called operator overloading approach for forward mode auto-differentiation)
+# Typical one wants to create its own dat type, this is done with `struct`. For example we can create a
+# `Dual` number type.
 struct Dual1
     val
     partial
 end
+# where the Dual number $x + a\epsilon \rightarrow f(x) + f'(x)\epsilon$ is similar to an imaginary, with $\epsilon^2 = 0$.
+# Dual numbers are used in the so-called forward mode autodifferentiation, and yield machine-precission derivatives. 
+# The easiest implimentation is done via "operator overloading", which means that we expand basic arithemtic operations
+# to Dual numbers arithmetics. Using multiple dispatch, we can define the rules for addition, multiplication, and exponentiation:
 import Base: +, *, ^
-(+)(x::Dual1, y::Dual1)  = Dual1(x.val + y.val, x.partial + y.partial)
-(+)(x::Dual1, y::Number) = x + Dual1(y, 0.0)
-(+)(x::Number, y::Dual1) = y + Dual1(x, 0.0)
-(*)(x::Dual1, y::Dual1)  = Dual1(x.val * y.val, x.val * y.partial + y.val * x.partial)
-(*)(x::Dual1, y::Number) = x * Dual1(y, 0.0)
-(*)(x::Number, y::Dual1) = y * Dual1(x, 0.0)
-(^)(x::Dual1, n::Number) = Dual1(x.val^n, n*x.partial * x.val^(n-1))
+(+)(x::Dual1 , y::Dual1)  = Dual1(x.val + y.val, x.partial + y.partial)
+(+)(x::Dual1 , y::Number) = Dual1(y, 0.0) + x
+(+)(x::Number, y::Dual1)  = Dual1(x, 0.0) + y
+(*)(x::Dual1 , y::Dual1)  = Dual1(x.val * y.val, x.val * y.partial + y.val * x.partial)
+(*)(x::Dual1 , y::Number) = Dual1(y, 0.0) * x
+(*)(x::Number, y::Dual1)  = Dual1(x, 0.0) * y
+(^)(x::Dual1 , n::Number) = Dual1(x.val^n, n*x.partial * x.val^(n-1))
 #
 f(x) = x^2 + 2*x + 1
 x1 = Dual1(3.0, 1.0)
@@ -50,13 +54,13 @@ struct Dual2{T}
     val::T
     partial::T
 end
-(+)(x::Dual2, y::Dual2)  = Dual2(x.val + y.val, x.partial + y.partial)
-(+)(x::Dual2{T}, y::Number) where T = x + Dual2(T(y), 0.0)
-(+)(x::Number, y::Dual2{T}) where T = y + Dual2(T(x), 0.0)
-(*)(x::Dual2, y::Dual2)  = Dual2(x.val * y.val, x.val * y.partial + y.val * x.partial)
-(*)(x::Dual2{T}, y::Number) where T = x * Dual2(T(y), 0.0)
-(*)(x::Number, y::Dual2{T}) where T = y * Dual2(T(x), 0.0)
-(^)(x::Dual2, n::Number) = Dual2(x.val^n, n*x.partial * x.val^(n-1))
+(+)(x::Dual2   , y::Dual2)            = Dual2(x.val + y.val, x.partial + y.partial)
+(+)(x::Dual2{T}, y::Number)   where T = Dual2(T(y), 0.0) + x
+(+)(x::Number  , y::Dual2{T}) where T = Dual2(T(x), 0.0) + y
+(*)(x::Dual2   , y::Dual2)            = Dual2(x.val * y.val, x.val * y.partial + y.val * x.partial)
+(*)(x::Dual2{T}, y::Number)   where T = Dual2(T(y), 0.0) * x
+(*)(x::Number  , y::Dual2{T}) where T = Dual2(T(x), 0.0) * y
+(^)(x::Dual2   , n::Number)           = Dual2(x.val^n, n*x.partial * x.val^(n-1))
 #
 x2 = Dual2(3.0, 1.0)
 f(x2)
