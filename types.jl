@@ -2,7 +2,7 @@
 using BenchmarkTools, InteractiveUtils
 # nb
 
-# # Types / struct
+# # Multiple dispatch
 # As opposed to Object-Oriented-Perogramming, one of the key features of Julia is the so-called multiple dispatch. It is a powerful
 # code dessign pattern that allows to write (typically highly abstract) generic code. 
 # From a simple point of view, multiple dispatch means that you can write several functions
@@ -18,6 +18,7 @@ foo(1.0)
 #
 foo(2f0)
 
+# # Types / struct
 # This means that I could extend a given method for a type that is defined in an external package.
 # Typical one wants to create its own dat type, this is done with `struct`. For example we can create a
 # `Dual` number type.
