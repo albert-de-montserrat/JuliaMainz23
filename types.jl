@@ -30,12 +30,15 @@ end
 # The easiest implimentation is done via "operator overloading", which means that we expand basic arithemtic operations
 # to Dual numbers arithmetics. Using multiple dispatch, we can define the rules for addition, multiplication, and exponentiation:
 import Base: +, *, ^
+# Addition rule: $(a + b\epsilon) + (c + d\epsilon) = ((a + c) + (b + d)\epsilon)$
 (+)(x::Dual1 , y::Dual1)  = Dual1(x.val + y.val, x.partial + y.partial)
 (+)(x::Dual1 , y::Number) = Dual1(y, 0.0) + x
 (+)(x::Number, y::Dual1)  = Dual1(x, 0.0) + y
+# Multiplication rule: $(a + b\epsilon) * (c + d\epsilon) = ((a * c) + (a + d)\epsilon+ (a + d)\epsilon)$
 (*)(x::Dual1 , y::Dual1)  = Dual1(x.val * y.val, x.val * y.partial + y.val * x.partial)
 (*)(x::Dual1 , y::Number) = Dual1(y, 0.0) * x
 (*)(x::Number, y::Dual1)  = Dual1(x, 0.0) * y
+# Power rule: $(a + b\epsilon)^n = (a^n + n * (b + a^{n-1})\epsilon$
 (^)(x::Dual1 , n::Number) = Dual1(x.val^n, n*x.partial * x.val^(n-1))
 #
 f(x) = x^2 + 2*x + 1
